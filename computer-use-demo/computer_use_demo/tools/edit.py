@@ -50,18 +50,21 @@ class EditTool(BaseAnthropicTool):
         insert_line: int | None = None,
         **kwargs,
     ):
+        # enclose the path in quotes if it contains spaces
         _path = Path(path)
         self.validate_path(command, _path)
         if command == "view":
             return await self.view(_path, view_range)
         elif command == "create":
-            if file_text is None:
-                raise ToolError("Parameter `file_text` is required for command: create")
+            if not file_text:
+                raise ToolError(
+                    "Parameter `file_text` is required for command: create"
+                )
             self.write_file(_path, file_text)
             self._file_history[_path].append(file_text)
             return ToolResult(output=f"File created successfully at: {_path}")
         elif command == "str_replace":
-            if old_str is None:
+            if not old_str:
                 raise ToolError(
                     "Parameter `old_str` is required for command: str_replace"
                 )
@@ -71,8 +74,10 @@ class EditTool(BaseAnthropicTool):
                 raise ToolError(
                     "Parameter `insert_line` is required for command: insert"
                 )
-            if new_str is None:
-                raise ToolError("Parameter `new_str` is required for command: insert")
+            if not new_str:
+                raise ToolError(
+                    "Parameter `new_str` is required for command: insert"
+                )
             return self.insert(_path, insert_line, new_str)
         elif command == "undo_edit":
             return self.undo_edit(_path)
@@ -115,7 +120,7 @@ class EditTool(BaseAnthropicTool):
                 )
 
             _, stdout, stderr = await run(
-                rf"find {path} -maxdepth 2 -not -path '*/\.*'"
+                rf"find '{path}' -maxdepth 2 -not -path '*/\.*'"
             )
             if not stderr:
                 stdout = f"Here's the files and directories up to 2 levels deep in {path}, excluding hidden items:\n{stdout}\n"
@@ -124,7 +129,9 @@ class EditTool(BaseAnthropicTool):
         file_content = self.read_file(path)
         init_line = 1
         if view_range:
-            if len(view_range) != 2 or not all(isinstance(i, int) for i in view_range):
+            if len(view_range) != 2 or not all(
+                isinstance(i, int) for i in view_range
+            ):
                 raise ToolError(
                     "Invalid `view_range`. It should be a list of two integers."
                 )
@@ -133,15 +140,15 @@ class EditTool(BaseAnthropicTool):
             init_line, final_line = view_range
             if init_line < 1 or init_line > n_lines_file:
                 raise ToolError(
-                    f"Invalid `view_range`: {view_range}. Its first element `{init_line}` should be within the range of lines of the file: {[1, n_lines_file]}"
+                    f"Invalid `view_range`: {view_range}. It's first element `{init_line}` should be within the range of lines of the file: {[1, n_lines_file]}"
                 )
             if final_line > n_lines_file:
                 raise ToolError(
-                    f"Invalid `view_range`: {view_range}. Its second element `{final_line}` should be smaller than the number of lines in the file: `{n_lines_file}`"
+                    f"Invalid `view_range`: {view_range}. It's second element `{final_line}` should be smaller than the number of lines in the file: `{n_lines_file}`"
                 )
             if final_line != -1 and final_line < init_line:
                 raise ToolError(
-                    f"Invalid `view_range`: {view_range}. Its second element `{final_line}` should be larger or equal than its first `{init_line}`"
+                    f"Invalid `view_range`: {view_range}. It's second element `{final_line}` should be larger or equal than its first `{init_line}`"
                 )
 
             if final_line == -1:
@@ -150,7 +157,9 @@ class EditTool(BaseAnthropicTool):
                 file_content = "\n".join(file_lines[init_line - 1 : final_line])
 
         return CLIResult(
-            output=self._make_output(file_content, str(path), init_line=init_line)
+            output=self._make_output(
+                file_content, str(path), init_line=init_line
+            )
         )
 
     def str_replace(self, path: Path, old_str: str, new_str: str | None):
@@ -190,7 +199,9 @@ class EditTool(BaseAnthropicTool):
         replacement_line = file_content.split(old_str)[0].count("\n")
         start_line = max(0, replacement_line - SNIPPET_LINES)
         end_line = replacement_line + SNIPPET_LINES + new_str.count("\n")
-        snippet = "\n".join(new_file_content.split("\n")[start_line : end_line + 1])
+        snippet = "\n".join(
+            new_file_content.split("\n")[start_line : end_line + 1]
+        )
 
         # Prepare the success message
         success_msg = f"The file {path} has been edited. "
@@ -257,14 +268,18 @@ class EditTool(BaseAnthropicTool):
         try:
             return path.read_text()
         except Exception as e:
-            raise ToolError(f"Ran into {e} while trying to read {path}") from None
+            raise ToolError(
+                f"Ran into {e} while trying to read {path}"
+            ) from None
 
     def write_file(self, path: Path, file: str):
         """Write the content of a file to a given path; raise a ToolError if an error occurs."""
         try:
             path.write_text(file)
         except Exception as e:
-            raise ToolError(f"Ran into {e} while trying to write to {path}") from None
+            raise ToolError(
+                f"Ran into {e} while trying to write to {path}"
+            ) from None
 
     def _make_output(
         self,
